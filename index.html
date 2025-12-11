@@ -2961,8 +2961,12 @@ updateCartDisplay() {
     if (this.saveStateToStorage) this.saveStateToStorage();
   },
     
-    deleteItemFromCart(index) { const cart = this.getActiveCart(); cart.splice(index, 1); this.updateCartDisplay();
-    },
+deleteItemFromCart(index) {
+    const cart = this.getActiveCart();
+    cart.splice(index, 1);
+    this.updateCartDisplay();
+    this.focusSearchIfReady(); // <--- เพิ่มบรรทัดนี้ เพื่อให้เคอร์เซอร์กลับไปช่องค้นหา
+},
     clearCart() { 
         const tabData = this.state.tabs.get(this.state.activeTabId);
         if (tabData && tabData.cart.length > 0) { 
@@ -2977,7 +2981,11 @@ updateCartDisplay() {
         const confirmBtn = document.getElementById('confirm-delete-btn'); 
         const confirmText = document.getElementById('delete-confirm-text'); 
         confirmText.textContent = `คุณแน่ใจหรือไม่ว่าต้องการล้างตะกร้าสินค้าทั้งหมด?`;
-        confirmBtn.onclick = () => { this.clearCart(); this.hideDeleteConfirmModal(); }; 
+        confirmBtn.onclick = () => {
+    this.clearCart();
+    this.hideDeleteConfirmModal();
+    this.focusSearchIfReady(); // <--- เพิ่มบรรทัดนี้ เพื่อโฟกัสหลังกดยืนยัน
+}; 
         document.getElementById('delete-confirm-modal').style.display = 'flex'; 
         confirmBtn.focus();
     },
