@@ -2313,11 +2313,17 @@ const response = await fetch(this.config.googleSheetUrl + '?t=' + new Date().get
             } 
         } 
     },
-    showProductMgmtModal() { 
+showProductMgmtModal() { 
         document.getElementById('product-mgmt-modal').style.display = 'flex';
-        document.getElementById('product-search-input').value = ''; 
+        const input = document.getElementById('product-search-input'); // 1. อ้างอิงตัวแปร input
+        input.value = ''; 
         this.state.productListPage = 1;
         this.renderProductList(); 
+        
+        // 2. เพิ่มคำสั่งโฟกัส (หน่วงเวลา 0.1 วิ เพื่อรอให้ Modal แสดงผลเสร็จ)
+        setTimeout(() => {
+            input.focus();
+        }, 100);
     },
     hideProductMgmtModal() { document.getElementById('product-mgmt-modal').style.display = 'none';
     },
