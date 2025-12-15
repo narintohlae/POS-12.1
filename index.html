@@ -2328,100 +2328,118 @@ showProductMgmtModal() {
     hideProductMgmtModal() { document.getElementById('product-mgmt-modal').style.display = 'none';
     },
 showProductEditorModal(product) {
-        this.state.currentEditingProductId = product ? product.id : null;
-        
-        const titleEl = document.getElementById('product-editor-title');
-        if (titleEl) titleEl.textContent = product ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่';
+    this.state.currentEditingProductId = product ? product.id : null;
+    const titleEl = document.getElementById('product-editor-title');
+    if (titleEl) titleEl.textContent = product ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่';
 
-        // Helper function เพื่อลดการเขียนโค้ดซ้ำและป้องกัน Error
-        const setValue = (id, value) => {
-            const el = document.getElementById(id);
-            if (el) el.value = value;
-        };
+    // Helper function เพื่อลดการเขียนโค้ดซ้ำและป้องกัน Error
+    const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value;
+    };
+    const setChecked = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = value;
+    };
 
-        const setChecked = (id, value) => {
-            const el = document.getElementById(id);
-            if (el) el.checked = value;
-        };
+    // เคลียร์ Container ของหน่วยสินค้าก่อน
+    const container = document.getElementById('pricing-units-container');
+    if (container) container.innerHTML = '';
 
-        // เคลียร์ Container ของหน่วยสินค้าก่อน
-        const container = document.getElementById('pricing-units-container');
-        if (container) container.innerHTML = '';
+    if (product) {
+        // กรณีแก้ไข: ดึงข้อมูลเดิมมาใส่
+        setValue('product-code', product.productCode || '');
+        setValue('product-name', product.productName || '');
+        setValue('product-category', product.category || '');
+        setValue('product-base-unit', product.baseUnit || '');
+        setValue('product-stock', product.stockInBaseUnits || 0);
+        setChecked('product-suspended', !!product.suspended);
 
-        if (product) {
-            // กรณีแก้ไข: ดึงข้อมูลเดิมมาใส่
-            setValue('product-code', product.productCode || '');
-            setValue('product-name', product.productName || '');
-            setValue('product-category', product.category || '');
-            setValue('product-base-unit', product.baseUnit || '');
-            setValue('product-stock', product.stockInBaseUnits || 0);
-            setChecked('product-suspended', !!product.suspended);
-
-            // วนลูปสร้างหน่วยสินค้า
-            if (product.pricingUnits && product.pricingUnits.length > 0) {
-                product.pricingUnits.forEach(unit => this.addPricingUnitRow(unit));
-            } else {
-                this.addPricingUnitRow();
-            }
+        // วนลูปสร้างหน่วยสินค้า
+        if (product.pricingUnits && product.pricingUnits.length > 0) {
+            product.pricingUnits.forEach(unit => this.addPricingUnitRow(unit));
         } else {
-            // กรณีเพิ่มใหม่: ล้างค่าทั้งหมด
-            setValue('product-code', '');
-            setValue('product-name', '');
-            setValue('product-category', '');
-            setValue('product-base-unit', '');
-            setValue('product-stock', '0');
-            setChecked('product-suspended', false);
-            
             this.addPricingUnitRow();
         }
+    } else {
+        // กรณีเพิ่มใหม่: ล้างค่าทั้งหมด
+        setValue('product-code', '');
+        setValue('product-name', '');
+        setValue('product-category', '');
+        setValue('product-base-unit', '');
+        setValue('product-stock', '0');
+        setChecked('product-suspended', false);
+        this.addPricingUnitRow();
+    }
 
-        // แสดง Modal
-        const modal = document.getElementById('product-editor-modal');
-        if (modal) modal.style.display = 'flex';
+    // แสดง Modal
+    const modal = document.getElementById('product-editor-modal');
+    if (modal) modal.style.display = 'flex';
 
-        // Logic การคำนวณต้นทุนอัตโนมัติ (คงเดิมแต่จัดระเบียบ)
-        if (this.state._costCalculationListener && container) {
-            container.removeEventListener('input', this.state._costCalculationListener);
-        }
 
-        this.state._costCalculationListener = (e) => {
-            const target = e.target;
-            if (!target.matches('input[data-field="cost"], input[data-field="conversionFactor"]')) {
-                return;
-            }
+    // ============================================================
+    // [START] Logic คำนวณต้นทุนอัตโนมัติ (Cost Calculation)
+    // ============================================================
+    
+    // 1. ลบ Listener เดิมออกก่อน (ป้องกันการทำงานซ้ำซ้อนเมื่อเปิด Modal หลายครั้ง)
+    if (this.state._costCalculationHandler && container) {
+        container.removeEventListener('input', this.state._costCalculationHandler);
+    }
 
-            const firstCard = container.querySelector('.pricing-unit-card:first-child');
-            if (!firstCard) return;
+    // 2. สร้างฟังก์ชันคำนวณ
+    this.state._costCalculationHandler = (e) => {
+        const target = e.target;
+        if (!container.contains(target)) return; // ถ้าไม่ได้แก้ในส่วนหน่วยสินค้า ก็จบการทำงาน
 
-            const firstCostInput = firstCard.querySelector('input[data-field="cost"]');
-            const baseCost = parseFloat(firstCostInput.value) || 0;
+        // หา Card ของหน่วยแรก (หน่วยที่เล็กที่สุด/หน่วยฐาน)
+        const firstCard = container.querySelector('.pricing-unit-card');
+        if (!firstCard) return;
 
-            const changedCard = target.closest('.pricing-unit-card');
+        // หา Input ต้นทุนของหน่วยฐาน
+        const baseCostInput = firstCard.querySelector('input[data-field="cost"]');
+        if (!baseCostInput) return;
+        
+        const baseCost = parseFloat(baseCostInput.value) || 0;
 
-            // กรณีแก้ต้นทุนที่หน่วยหลัก (หน่วยแรก) -> อัปเดตทุกหน่วย
-            if (changedCard === firstCard && target.dataset.field === 'cost') {
-                const allOtherCards = container.querySelectorAll('.pricing-unit-card:not(:first-child)');
-                allOtherCards.forEach(card => {
-                    const conversionInput = card.querySelector('input[data-field="conversionFactor"]');
-                    const costInput = card.querySelector('input[data-field="cost"]');
-                    if (conversionInput && costInput) {
-                        const factor = parseFloat(conversionInput.value) || 0;
-                        costInput.value = (baseCost * factor).toFixed(2);
-                    }
-                });
-            } 
-            // กรณีแก้ตัวคูณที่หน่วยย่อย -> อัปเดตต้นทุนหน่วยนั้น
-            else if (changedCard !== firstCard && target.dataset.field === 'conversionFactor') {
-                const costInput = changedCard.querySelector('input[data-field="cost"]');
-                if (costInput) {
-                    const factor = parseFloat(target.value) || 0;
-                    costInput.value = (baseCost * factor).toFixed(2);
+        // กรณี A: แก้ไข "ต้นทุน" ของหน่วยหลัก -> อัปเดตต้นทุนของทุกหน่วยตามตัวคูณ
+        if (target === baseCostInput) {
+            const allCards = container.querySelectorAll('.pricing-unit-card');
+            allCards.forEach((card, index) => {
+                if (index === 0) return; // ข้ามตัวแรก (เพราะคือตัวที่กำลังแก้อยู่)
+                
+                const factorInput = card.querySelector('input[data-field="conversionFactor"]');
+                const costInput = card.querySelector('input[data-field="cost"]');
+                
+                if (factorInput && costInput) {
+                    const factor = parseFloat(factorInput.value) || 1;
+                    // สูตร: ต้นทุน = ต้นทุนหน่วยเล็กสุด * ตัวคูณ
+                    costInput.value = (baseCost * factor).toFixed(2); 
                 }
+            });
+        }
+        
+        // กรณี B: แก้ไข "ตัวคูณ" ของหน่วยอื่นๆ -> อัปเดตเฉพาะต้นทุนของหน่วยนั้น
+        else if (target.dataset.field === 'conversionFactor') {
+            const card = target.closest('.pricing-unit-card');
+            const costInput = card.querySelector('input[data-field="cost"]');
+            
+            // ตรวจสอบว่าไม่ใช่หน่วยแรก และมีช่องต้นทุนให้แก้
+            if (card !== firstCard && costInput) {
+                const factor = parseFloat(target.value) || 1;
+                // สูตร: ต้นทุน = ต้นทุนหน่วยเล็กสุด * ตัวคูณใหม่
+                costInput.value = (baseCost * factor).toFixed(2);
             }
-        };
+        }
+    };
 
-        if (container) container.addEventListener('input', this.state._costCalculationListener);
-    },
+    // 3. ติดตั้ง Listener ลงใน Container
+    if (container) {
+        container.addEventListener('input', this.state._costCalculationHandler);
+    }
+    // ============================================================
+    // [END] Logic คำนวณต้นทุนอัตโนมัติ
+    // ============================================================
+},
     hideProductEditorModal() { document.getElementById('product-editor-modal').style.display = 'none';
     },
     renderProductList(filterText = '') {
