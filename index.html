@@ -2069,13 +2069,11 @@ async importFromGoogleSheet(isAutomatic = false) {
                     // กรณีไม่มีต้นทุนมา แต่มีราคาขาย -> อัปเดตราคาขายหน่วยแรก
                     if (updatedPricingUnits.length > 0) {
                         updatedPricingUnits[0].defaultPrice = sheetPrice;
-                        if (updatedPricingUnits[0].priceTiers && Array.isArray(updatedPricingUnits[0].priceTiers)) {
-                        const tierOneIndex = updatedPricingUnits[0].priceTiers.findIndex(t => t.quantity === 1);
-                        if (tierOneIndex !== -1) {
-                        updatedPricingUnits[0].priceTiers[tierOneIndex].price = sheetPrice;
+                        if (updatedPricingUnits[0].priceTiers && updatedPricingUnits[0].priceTiers.length > 0) {
+                            updatedPricingUnits[0].priceTiers[0].price = sheetPrice;
+                        }
                     }
                 }
-            }
 
                 batch.update(docRef, {
                     productName: sheetName || productData.productName,
